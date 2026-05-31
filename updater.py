@@ -13,6 +13,12 @@ PWD  = os.environ["PORTAL_PASS"]
 
 # ---------- CONNECT + DIAGNOSTICS ----------
 print("1. Connecting to portal...", flush=True)
+try:
+    gis = GIS(PORTAL, USER, PWD, verify_cert=False, timeout=60)
+    print("2. Connected as:", gis.users.me.username, flush=True)
+except Exception as e:
+    print("CONNECTION FAILED:", repr(e), flush=True)
+    raise
 gis = GIS(PORTAL, USER, PWD, verify_cert=False)
 print("2. Connected as:", gis.users.me.username, flush=True)
 
