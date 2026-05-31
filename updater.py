@@ -10,7 +10,7 @@ USER = os.environ["PORTAL_USER"]
 PWD  = os.environ["PORTAL_PASS"]
 
 # 1. Enterprise portal se connect. SSL error aaye to verify_cert=False add karna.
-gis = GIS(PORTAL, USER, PWD)
+gis = GIS(PORTAL, USER, PWD, verify_cert=False)
 layer = gis.content.get(ITEM_ID).layers[0]
 oid_field = layer.properties.objectIdField
 
