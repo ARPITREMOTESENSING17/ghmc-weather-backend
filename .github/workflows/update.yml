@@ -1,0 +1,17 @@
+name: Update station rainfall
+on:
+  workflow_dispatch:        # manual "Run" button (testing ke liye)
+  schedule:
+    - cron: "0 */3 * * *"   # har 3 ghante
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install arcgis requests
+      - run: python updater.py
+        env:
+          PORTAL_USER: ${{ secrets.PORTAL_USER }}
+          PORTAL_PASS: ${{ secrets.PORTAL_PASS }}
