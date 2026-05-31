@@ -1,5 +1,7 @@
 import os, time, requests
 from datetime import datetime, timezone
+import warnings
+warnings.filterwarnings("ignore")
 from arcgis.gis import GIS
 
 BACKEND   = "https://ghmc-weather-backend.onrender.com/forecast"
