@@ -89,7 +89,7 @@ def forecast():
         d = dt.datetime.fromtimestamp(t / 1000, tz=dt.timezone.utc).replace(tzinfo=None)
         p_val = 0.0
         if i < len(precip) and precip[i] is not None:
-            p_val = round(precip[i], 2)
+            p_val = round(precip[i] * 1000, 2)   # meters → mm
         points.append({
             "dt": d,
             "temp": k_to_c(temp[i]) if i < len(temp) else None,
