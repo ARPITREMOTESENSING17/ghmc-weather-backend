@@ -1,11 +1,12 @@
 import os
 import datetime as dt
 import requests
+import math
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 
-load_dotenv()
+# load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
@@ -19,6 +20,15 @@ IST = dt.timedelta(hours=5, minutes=30)
 def k_to_c(k):
     return round(k - 273.15, 1) if k is not None else None
 
+def wind_to_speed_dir(u, v):
+    """Windy ke wind_u, wind_v (m/s) se speed (km/h) + compass direction."""
+    if u is None or v is None:
+        return None, None
+    speed_kmph = round(math.sqrt(u*u + v*v) * 3.6, 1)
+    deg = (math.degrees(math.atan2(-u, -v)) + 360) % 360
+    dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+    compass = dirs[round(deg / 45) % 8]
+    return speed_kmph, compass
 
 def find_key(data, must_contain, must_not=None):
     """data ki keys mein se wo dhoondho jisme 'must_contain' ho.
@@ -42,7 +52,7 @@ def debug():
     lat = float(request.args.get("lat", 25.30))
     lon = float(request.args.get("lon", 91.58))
     payload = {"lat": lat, "lon": lon, "model": MODEL,
-               "parameters": ["temp", "precip"], "levels": ["surface"], "key": WINDY_KEY}
+               "parameters": ["temp", "precip", "wind"], "levels": ["surface"], "key": WINDY_KEY}
     r = requests.post(WINDY_URL, json=payload, timeout=20)
     data = r.json()
     out = {"status_code": r.status_code, "all_keys": list(data.keys()), "units": data.get("units", {})}
@@ -65,7 +75,7 @@ def forecast():
         return jsonify({"error": "WINDY_KEY server pe set nahi hai"}), 500
 
     payload = {"lat": lat, "lon": lon, "model": MODEL,
-               "parameters": ["temp", "precip"], "levels": ["surface"], "key": WINDY_KEY}
+               "parameters": ["temp", "precip", "wind"], "levels": ["surface"], "key": WINDY_KEY}
     try:
         r = requests.post(WINDY_URL, json=payload, timeout=20)
         r.raise_for_status()
