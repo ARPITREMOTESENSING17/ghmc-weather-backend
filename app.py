@@ -153,5 +153,80 @@ def forecast():
     })
 
 
+@app.route("/blocks")
+def blocks():
+    try:
+        lat = float(request.args.get("lat"))
+        lon = float(request.args.get("lon"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "lat aur lon dono chahiye"}), 400
+
+    if not WINDY_KEY:
+        return jsonify({"error": "WINDY_KEY server pe set nahi hai"}), 500
+
+    payload = {"lat": lat, "lon": lon, "model": MODEL,
+               "parameters": ["temp", "precip", "wind"], "levels": ["surface"], "key": WINDY_KEY}
+    try:
+        r = requests.post(WINDY_URL, json=payload, timeout=20)
+        r.raise_for_status()
+    except requests.RequestException as e:
+        return jsonify({"error": "Windy API fail: " + str(e)}), 502
+
+    data = r.json()
+    ts = data.get("ts", [])
+    precip_key = find_key(data, "precip", must_not=["snow", "conv"])
+    precip = data.get(precip_key, []) if precip_key else []
+
+    if not ts:
+        return jsonify({"location": {"lat": lat, "lon": lon}, "blocks": [], "note": "no data"}), 200
+
+    points = []
+    for i, t in enumerate(ts):
+        d_ist = dt.datetime.fromtimestamp(t / 1000, tz=dt.timezone.utc).replace(tzinfo=None) + IST
+        p_val = round(precip[i] * 1000, 2) if (i < len(precip) and precip[i] is not None) else 0.0
+        points.append({"dt": d_ist, "precip": p_val})
+
+    now_ist = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None) + IST
+    start = now_ist.replace(hour=7, minute=0, second=0, microsecond=0)
+    if now_ist.hour < 7:
+        start = start - dt.timedelta(days=1)
+
+    def categorize(mm):
+        if mm < 0.1:
+            return "dry"
+        if mm < 2.5:
+            return "drizzle"
+        if mm < 7.5:
+            return "light"
+        if mm < 15:
+            return "moderate"
+        return "heavy"
+
+    def fmt_hour(h):
+        ampm = "am" if h < 12 else "pm"
+        hr = h % 12
+        if hr == 0:
+            hr = 12
+        return f"{hr}{ampm}"
+
+    rainy_blocks = []
+    for b in range(8):
+        b_start = start + dt.timedelta(hours=3 * b)
+        b_end = b_start + dt.timedelta(hours=3)
+        total = sum(p["precip"] for p in points if b_start <= p["dt"] < b_end)
+        total = round(total, 1)
+        cat = categorize(total)
+        if cat == "dry":
+            continue
+        time_label = f"{fmt_hour(b_start.hour)}-{fmt_hour(b_end.hour)}"
+        rainy_blocks.append({"time": time_label, "mm": total, "category": cat})
+
+    return jsonify({
+        "location": {"lat": lat, "lon": lon},
+        "date": start.strftime("%d %b %Y"),
+        "blocks": rainy_blocks,
+    })
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
