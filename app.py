@@ -91,6 +91,9 @@ def forecast():
     temp = data.get(temp_key, []) if temp_key else []
     precip = data.get(precip_key, []) if precip_key else []
 
+    wind_u = data.get("wind_u-surface", [])
+    wind_v = data.get("wind_v-surface", [])
+
     if not ts:
         return jsonify({"location": {"lat": lat, "lon": lon}, "hourly": [], "daily": [], "note": "no data"}), 200
 
@@ -100,10 +103,15 @@ def forecast():
         p_val = 0.0
         if i < len(precip) and precip[i] is not None:
             p_val = round(precip[i] * 1000, 2)   # meters → mm
+        u = wind_u[i] if i < len(wind_u) else None
+        v = wind_v[i] if i < len(wind_v) else None
+        spd, dir_ = wind_to_speed_dir(u, v)
         points.append({
             "dt": d,
             "temp": k_to_c(temp[i]) if i < len(temp) else None,
             "precip": p_val,
+            "wind_kmph": spd,
+            "wind_dir": dir_,
         })
 
     local_now = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None) + IST
@@ -115,7 +123,8 @@ def forecast():
     for label, hrs in [("+3 hr", 3), ("+6 hr", 6), ("+12 hr", 12)]:
         p = nearest(local_now + dt.timedelta(hours=hrs))
         hourly.append({"label": label, "time": p["dt"].strftime("%d %b, %I:%M %p"),
-                       "temp": p["temp"], "precip": p["precip"]})
+                       "temp": p["temp"], "precip": p["precip"],
+                       "wind_kmph": p["wind_kmph"], "wind_dir": p["wind_dir"]})
 
     daily_map = {}
     for p in points:
