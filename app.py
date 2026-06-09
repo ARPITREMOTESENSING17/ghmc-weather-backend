@@ -52,7 +52,7 @@ def debug():
     lat = float(request.args.get("lat", 25.30))
     lon = float(request.args.get("lon", 91.58))
     payload = {"lat": lat, "lon": lon, "model": MODEL,
-               "parameters": ["temp", "precip", "wind", "weatherWarnings"], "levels": ["surface"], "key": WINDY_KEY}
+               "parameters": ["temp", "precip", "wind", "cape", "windGust"], "levels": ["surface"], "key": WINDY_KEY}
     r = requests.post(WINDY_URL, json=payload, timeout=20)
     data = r.json()
     out = {"status_code": r.status_code, "all_keys": list(data.keys()), "units": data.get("units", {})}
@@ -164,7 +164,7 @@ def blocks():
         return jsonify({"error": "WINDY_KEY server pe set nahi hai"}), 500
 
     payload = {"lat": lat, "lon": lon, "model": MODEL,
-               "parameters": ["temp", "precip", "wind", "weatherWarnings"], "levels": ["surface"], "key": WINDY_KEY}
+               "parameters": ["temp", "precip", "wind"], "levels": ["surface"], "key": WINDY_KEY}
     try:
         r = requests.post(WINDY_URL, json=payload, timeout=20)
         r.raise_for_status()
