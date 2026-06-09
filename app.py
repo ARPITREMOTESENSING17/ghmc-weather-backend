@@ -57,9 +57,8 @@ def debug():
     data = r.json()
     out = {"status_code": r.status_code, "all_keys": list(data.keys()), "units": data.get("units", {})}
     for k in data.keys():
-        if "precip" in k.lower():
-            v = data[k]
-            out["sample__" + k] = v[:8] if isinstance(v, list) else v
+        v = data[k]
+        out["sample__" + k] = v[:8] if isinstance(v, list) else v
     return jsonify(out)
 
 
