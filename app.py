@@ -164,7 +164,8 @@ def blocks():
         return jsonify({"error": "WINDY_KEY server pe set nahi hai"}), 500
 
     payload = {"lat": lat, "lon": lon, "model": MODEL,
-               "parameters": ["temp", "precip", "wind"], "levels": ["surface"], "key": WINDY_KEY}
+               "parameters": ["temp", "precip", "wind", "cape", "windGust"],
+               "levels": ["surface"], "key": WINDY_KEY}
     try:
         r = requests.post(WINDY_URL, json=payload, timeout=20)
         r.raise_for_status()
@@ -175,6 +176,8 @@ def blocks():
     ts = data.get("ts", [])
     precip_key = find_key(data, "precip", must_not=["snow", "conv"])
     precip = data.get(precip_key, []) if precip_key else []
+    cape = data.get("cape-surface", [])
+    gust = data.get("gust-surface", [])
 
     if not ts:
         return jsonify({"location": {"lat": lat, "lon": lon}, "blocks": [], "note": "no data"}), 200
@@ -183,7 +186,9 @@ def blocks():
     for i, t in enumerate(ts):
         d_ist = dt.datetime.fromtimestamp(t / 1000, tz=dt.timezone.utc).replace(tzinfo=None) + IST
         p_val = round(precip[i] * 1000, 2) if (i < len(precip) and precip[i] is not None) else 0.0
-        points.append({"dt": d_ist, "precip": p_val})
+        c_val = cape[i] if (i < len(cape) and cape[i] is not None) else 0.0
+        g_val = gust[i] if (i < len(gust) and gust[i] is not None) else 0.0
+        points.append({"dt": d_ist, "precip": p_val, "cape": c_val, "gust": g_val})
 
     now_ist = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None) + IST
     start = now_ist.replace(hour=7, minute=0, second=0, microsecond=0)
@@ -212,13 +217,21 @@ def blocks():
     for b in range(8):
         b_start = start + dt.timedelta(hours=3 * b)
         b_end = b_start + dt.timedelta(hours=3)
-        total = sum(p["precip"] for p in points if b_start <= p["dt"] < b_end)
-        total = round(total, 1)
+        in_block = [p for p in points if b_start <= p["dt"] < b_end]
+        total = round(sum(p["precip"] for p in in_block), 1)
         cat = categorize(total)
         if cat == "dry":
             continue
+        max_cape = max((p["cape"] for p in in_block), default=0)
+        max_gust_kmph = round(max((p["gust"] for p in in_block), default=0) * 3.6)
         time_label = f"{fmt_hour(b_start.hour)}-{fmt_hour(b_end.hour)}"
-        rainy_blocks.append({"time": time_label, "mm": total, "category": cat})
+        rainy_blocks.append({
+            "time": time_label,
+            "mm": total,
+            "category": cat,
+            "thunderstorm": max_cape >= 1000,
+            "gust_kmph": max_gust_kmph,
+        })
 
     return jsonify({
         "location": {"lat": lat, "lon": lon},
